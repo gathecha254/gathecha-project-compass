@@ -1,0 +1,60 @@
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ThemeToggle } from './ThemeToggle';
+import { 
+  Search, 
+  Bell, 
+  Plus, 
+  Bot,
+  Filter
+} from 'lucide-react';
+
+interface TopBarProps {
+  onNewTask: () => void;
+  onToggleAI: () => void;
+}
+
+export const TopBar = ({ onNewTask, onToggleAI }: TopBarProps) => {
+  return (
+    <header className="bg-card border-b border-border px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4 flex-1">
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search projects, tasks, or use AI commands..."
+              className="pl-10 bg-background border-input"
+            />
+          </div>
+          
+          <Button variant="outline" size="icon">
+            <Filter className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          <Button
+            onClick={onToggleAI}
+            variant="outline"
+            className="hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          >
+            <Bot className="h-4 w-4 mr-2" />
+            AI Assistant
+          </Button>
+          
+          <Button onClick={onNewTask} className="bg-gradient-to-r from-blue-600 to-blue-700">
+            <Plus className="h-4 w-4 mr-2" />
+            New Task
+          </Button>
+          
+          <Button variant="outline" size="icon">
+            <Bell className="h-4 w-4" />
+          </Button>
+          
+          <ThemeToggle />
+        </div>
+      </div>
+    </header>
+  );
+};

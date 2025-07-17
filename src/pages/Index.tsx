@@ -1,13 +1,54 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from 'react';
+import { Sidebar } from '@/components/Sidebar';
+import { TopBar } from '@/components/TopBar';
+import { Dashboard } from '@/components/Dashboard';
+import { TaskModal } from '@/components/TaskModal';
+import { AIAssistant } from '@/components/AIAssistant';
+import { useTheme } from '@/hooks/useTheme';
+import { ProjectProvider } from '@/contexts/ProjectContext';
 
 const Index = () => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [currentView, setCurrentView] = useState('kanban');
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <ProjectProvider>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="flex w-full">
+          <Sidebar 
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            currentView={currentView}
+            onViewChange={setCurrentView}
+          />
+          
+          <div className="flex-1 flex flex-col">
+            <TopBar 
+              onNewTask={() => setShowTaskModal(true)}
+              onToggleAI={() => setShowAIAssistant(!showAIAssistant)}
+            />
+            
+            <main className="flex-1 p-6">
+              <Dashboard 
+                view={currentView}
+                onNewTask={() => setShowTaskModal(true)}
+              />
+            </main>
+          </div>
+        </div>
+
+        {showTaskModal && (
+          <TaskModal onClose={() => setShowTaskModal(false)} />
+        )}
+
+        {showAIAssistant && (
+          <AIAssistant onClose={() => setShowAIAssistant(false)} />
+        )}
       </div>
-    </div>
+    </ProjectProvider>
   );
 };
 
