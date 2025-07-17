@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { 
   Columns3, 
   Calendar, 
-  Timeline, 
+  Clock, 
   BarChart4, 
   List 
 } from 'lucide-react';
@@ -17,7 +17,7 @@ export const ViewSelector = ({ currentView, onViewChange }: ViewSelectorProps) =
   const views = [
     { id: 'kanban', label: 'Kanban', icon: Columns3 },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
-    { id: 'timeline', label: 'Timeline', icon: Timeline },
+    { id: 'timeline', label: 'Timeline', icon: Clock },
     { id: 'gantt', label: 'Gantt', icon: BarChart4 },
     { id: 'list', label: 'List', icon: List },
   ];

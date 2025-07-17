@@ -142,7 +142,7 @@ export const KanbanView = ({ onNewTask }: KanbanViewProps) => {
               ))}
 
               <Button
-                variant="dashed"
+                variant="outline"
                 className="w-full h-12 border-2 border-dashed border-blue-300 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10"
                 onClick={onNewTask}
               >
