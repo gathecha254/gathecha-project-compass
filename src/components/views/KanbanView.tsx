@@ -4,14 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Plus, Clock, AlertCircle, CheckCircle, MoreVertical } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useProject } from '@/contexts/ProjectContext';
 
 interface KanbanViewProps {
-  onNewTask: () => void;
+  onNewProject: () => void;
 }
 
-export const KanbanView = ({ onNewTask }: KanbanViewProps) => {
-  const { projects, tasks } = useProject();
+export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
+  const { projects } = useProject();
 
   const columns = [
     { id: 'todo', title: 'To Do', color: 'bg-gray-100 dark:bg-gray-800' },
@@ -20,71 +21,80 @@ export const KanbanView = ({ onNewTask }: KanbanViewProps) => {
     { id: 'done', title: 'Done', color: 'bg-green-100 dark:bg-green-900/20' },
   ];
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const mockTasks = [
+  const mockProjects = [
     {
       id: 1,
-      title: 'Implement user authentication system',
-      description: 'Build secure login/logout functionality with JWT tokens',
-      priority: 'high',
+      name: 'Tech Project',
+      description: 'Building a modern web application with React and TypeScript',
       status: 'in-progress',
-      project: 'Tech Project',
-      dueDate: '2024-07-20',
       progress: 65,
-      tags: ['React', 'Backend', 'Security']
+      dueDate: '2024-07-20',
+      tasks: [
+        { title: 'User authentication', completed: true },
+        { title: 'Dashboard UI', completed: true },
+        { title: 'API integration', completed: false },
+        { title: 'Testing', completed: false }
+      ],
+      tags: ['React', 'TypeScript', 'Web Development']
     },
     {
       id: 2,
-      title: 'Data analysis for customer segmentation',
-      description: 'Analyze customer data to identify key segments for marketing',
-      priority: 'medium',
+      name: 'Data Science Study',
+      description: 'Customer segmentation analysis using machine learning',
       status: 'todo',
-      project: 'Data Science Study',
+      progress: 20,
       dueDate: '2024-07-25',
-      progress: 0,
-      tags: ['Python', 'Analytics', 'Machine Learning']
+      tasks: [
+        { title: 'Data collection', completed: true },
+        { title: 'Data cleaning', completed: false },
+        { title: 'Model training', completed: false },
+        { title: 'Analysis report', completed: false }
+      ],
+      tags: ['Python', 'Machine Learning', 'Analytics']
     },
     {
       id: 3,
-      title: 'Research paper on AI ethics',
-      description: 'Write comprehensive paper on ethical implications of AI',
-      priority: 'high',
+      name: 'Research Paper',
+      description: 'AI ethics and responsible development practices',
       status: 'review',
-      project: 'Research',
-      dueDate: '2024-07-22',
       progress: 90,
-      tags: ['Research', 'AI', 'Ethics']
+      dueDate: '2024-07-22',
+      tasks: [
+        { title: 'Literature review', completed: true },
+        { title: 'Data analysis', completed: true },
+        { title: 'Draft writing', completed: true },
+        { title: 'Peer review', completed: false }
+      ],
+      tags: ['Research', 'AI Ethics', 'Academic']
     },
     {
       id: 4,
-      title: 'Business process optimization report',
-      description: 'Analyze current business processes and recommend improvements',
-      priority: 'medium',
+      name: 'Business Analysis',
+      description: 'Process optimization and efficiency improvements',
       status: 'done',
-      project: 'Business Analysis',
-      dueDate: '2024-07-18',
       progress: 100,
+      dueDate: '2024-07-18',
+      tasks: [
+        { title: 'Current state analysis', completed: true },
+        { title: 'Process mapping', completed: true },
+        { title: 'Recommendations', completed: true },
+        { title: 'Implementation plan', completed: true }
+      ],
       tags: ['Business', 'Process', 'Optimization']
     }
   ];
 
-  const getTasksByStatus = (status: string) => {
-    return mockTasks.filter(task => task.status === status);
+  const getProjectsByStatus = (status: string) => {
+    return mockProjects.filter(project => project.status === status);
   };
+
+  const completedTasks = (tasks: any[]) => tasks.filter(task => task.completed).length;
 
   return (
     <div className="h-full">
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-2">Project Dashboard</h2>
-        <p className="text-muted-foreground">Manage your tasks across different projects</p>
+        <p className="text-muted-foreground">Manage your projects across different stages</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 h-full">
@@ -94,43 +104,55 @@ export const KanbanView = ({ onNewTask }: KanbanViewProps) => {
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold">{column.title}</h3>
                 <Badge variant="secondary">
-                  {getTasksByStatus(column.id).length}
+                  {getProjectsByStatus(column.id).length}
                 </Badge>
               </div>
             </div>
 
             <div className="space-y-4 flex-1">
-              {getTasksByStatus(column.id).map((task) => (
-                <Card key={task.id} className="hover:shadow-md transition-shadow cursor-pointer">
+              {getProjectsByStatus(column.id).map((project) => (
+                <Card key={project.id} className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(task.priority)}`} />
-                        <CardTitle className="text-sm font-medium">{task.title}</CardTitle>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <MoreVertical className="h-3 w-3" />
-                      </Button>
+                      <CardTitle className="text-lg font-semibold">{project.name}</CardTitle>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6">
+                            <MoreVertical className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>Add New Task</DropdownMenuItem>
+                          <DropdownMenuItem>Edit Project</DropdownMenuItem>
+                          <DropdownMenuItem>Archive Project</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">Delete Project</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardHeader>
                   
                   <CardContent className="pt-0">
-                    <p className="text-xs text-muted-foreground mb-3">{task.description}</p>
+                    <p className="text-sm text-muted-foreground mb-4">{project.description}</p>
                     
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Progress</span>
-                        <span className="font-medium">{task.progress}%</span>
+                        <span className="font-medium">{project.progress}%</span>
                       </div>
-                      <Progress value={task.progress} className="h-2" />
+                      <Progress value={project.progress} className="h-2" />
+                      
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Tasks</span>
+                        <span className="font-medium">{completedTasks(project.tasks)}/{project.tasks.length}</span>
+                      </div>
                       
                       <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        <span>Due {task.dueDate}</span>
+                        <span>Due {project.dueDate}</span>
                       </div>
                       
                       <div className="flex flex-wrap gap-1">
-                        {task.tags.map((tag) => (
+                        {project.tags.map((tag) => (
                           <Badge key={tag} variant="outline" className="text-xs">
                             {tag}
                           </Badge>
@@ -144,10 +166,10 @@ export const KanbanView = ({ onNewTask }: KanbanViewProps) => {
               <Button
                 variant="outline"
                 className="w-full h-12 border-2 border-dashed border-blue-300 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10"
-                onClick={onNewTask}
+                onClick={onNewProject}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Task
+                Add Project
               </Button>
             </div>
           </div>

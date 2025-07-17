@@ -5,17 +5,15 @@ import { ThemeToggle } from './ThemeToggle';
 import { 
   Search, 
   Bell, 
-  Plus, 
   Bot,
   Filter
 } from 'lucide-react';
 
 interface TopBarProps {
-  onNewTask: () => void;
   onToggleAI: () => void;
 }
 
-export const TopBar = ({ onNewTask, onToggleAI }: TopBarProps) => {
+export const TopBar = ({ onToggleAI }: TopBarProps) => {
   return (
     <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
@@ -41,11 +39,6 @@ export const TopBar = ({ onNewTask, onToggleAI }: TopBarProps) => {
           >
             <Bot className="h-4 w-4 mr-2" />
             AI Assistant
-          </Button>
-          
-          <Button onClick={onNewTask} className="bg-gradient-to-r from-blue-600 to-blue-700">
-            <Plus className="h-4 w-4 mr-2" />
-            New Task
           </Button>
           
           <Button variant="outline" size="icon">

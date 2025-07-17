@@ -7,24 +7,24 @@ import { ListView } from './views/ListView';
 
 interface DashboardProps {
   view: string;
-  onNewTask: () => void;
+  onNewProject: () => void;
 }
 
-export const Dashboard = ({ view, onNewTask }: DashboardProps) => {
+export const Dashboard = ({ view, onNewProject }: DashboardProps) => {
   const renderView = () => {
     switch (view) {
       case 'kanban':
-        return <KanbanView onNewTask={onNewTask} />;
+        return <KanbanView onNewProject={onNewProject} />;
       case 'calendar':
-        return <CalendarView onNewTask={onNewTask} />;
+        return <CalendarView onNewTask={() => {}} />;
       case 'timeline':
-        return <TimelineView onNewTask={onNewTask} />;
+        return <TimelineView onNewTask={() => {}} />;
       case 'gantt':
-        return <GanttView onNewTask={onNewTask} />;
+        return <GanttView onNewTask={() => {}} />;
       case 'list':
-        return <ListView onNewTask={onNewTask} />;
+        return <ListView onNewTask={() => {}} />;
       default:
-        return <KanbanView onNewTask={onNewTask} />;
+        return <KanbanView onNewProject={onNewProject} />;
     }
   };
 
