@@ -12,7 +12,7 @@ interface KanbanViewProps {
 }
 
 export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
-  const { projects } = useProject();
+  const { projects, tasks, getProjectTasks, beginTask, completeTask } = useProject();
 
   const columns = [
     { id: 'todo', title: 'To Do', color: 'bg-gray-100 dark:bg-gray-800' },
@@ -85,10 +85,23 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
   ];
 
   const getProjectsByStatus = (status: string) => {
-    return mockProjects.filter(project => project.status === status);
+    // Use real projects from context, fallback to mock data if empty
+    const allProjects = projects.length > 0 ? projects : mockProjects;
+    return allProjects.filter((project: any) => project.status === status);
   };
 
-  const completedTasks = (tasks: any[]) => tasks.filter(task => task.completed).length;
+  const getProjectTasksCount = (projectId: number) => {
+    const projectTasks = getProjectTasks(projectId);
+    const completed = projectTasks.filter(task => task.completed).length;
+    return { completed, total: projectTasks.length };
+  };
+
+  const getProjectProgress = (projectId: number) => {
+    const projectTasks = getProjectTasks(projectId);
+    if (projectTasks.length === 0) return 0;
+    const completed = projectTasks.filter(task => task.completed).length;
+    return Math.round((completed / projectTasks.length) * 100);
+  };
 
   return (
     <div className="h-full">
@@ -121,7 +134,7 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
                             <MoreVertical className="h-3 w-3" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="bg-background border shadow-md">
                           <DropdownMenuItem>Add New Task</DropdownMenuItem>
                           <DropdownMenuItem>Edit Project</DropdownMenuItem>
                           <DropdownMenuItem>Archive Project</DropdownMenuItem>
@@ -135,24 +148,41 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
                     <p className="text-sm text-muted-foreground mb-4">{project.description}</p>
                     
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Progress</span>
-                        <span className="font-medium">{project.progress}%</span>
-                      </div>
-                      <Progress value={project.progress} className="h-2" />
-                      
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Tasks</span>
-                        <span className="font-medium">{completedTasks(project.tasks)}/{project.tasks.length}</span>
-                      </div>
+                      {projects.length > 0 ? (
+                        <>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Progress</span>
+                            <span className="font-medium">{getProjectProgress(project.id)}%</span>
+                          </div>
+                          <Progress value={getProjectProgress(project.id)} className="h-2" />
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Tasks</span>
+                            <span className="font-medium">{getProjectTasksCount(project.id).completed}/{getProjectTasksCount(project.id).total}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Progress</span>
+                            <span className="font-medium">{project.progress}%</span>
+                          </div>
+                          <Progress value={project.progress} className="h-2" />
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Tasks</span>
+                            <span className="font-medium">{project.tasks?.filter((t: any) => t.completed).length || 0}/{project.tasks?.length || 0}</span>
+                          </div>
+                        </>
+                      )}
                       
                       <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        <span>Due {project.dueDate}</span>
+                        <span>Due {(project as any).endDate || (project as any).dueDate}</span>
                       </div>
                       
                       <div className="flex flex-wrap gap-1">
-                        {project.tags.map((tag) => (
+                        {((project as any).tags || []).map((tag: string) => (
                           <Badge key={tag} variant="outline" className="text-xs">
                             {tag}
                           </Badge>
@@ -163,14 +193,7 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
                 </Card>
               ))}
 
-              <Button
-                variant="outline"
-                className="w-full h-12 border-2 border-dashed border-blue-300 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10"
-                onClick={onNewProject}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Project
-              </Button>
+              {/* Removed "Add Project" button - only accessible via sidebar */}
             </div>
           </div>
         ))}

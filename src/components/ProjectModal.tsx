@@ -12,15 +12,17 @@ import { CalendarIcon, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useProject } from '@/contexts/ProjectContext';
 
 interface ProjectModalProps {
   onClose: () => void;
 }
 
 export const ProjectModal = ({ onClose }: ProjectModalProps) => {
+  const { addProject } = useProject();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState('todo');
+  const [category, setCategory] = useState<'tech' | 'academic' | 'research' | 'business' | 'personal'>('tech');
   const [dueDate, setDueDate] = useState<Date>();
   const [tags, setTags] = useState<string[]>([]);
   const [currentTag, setCurrentTag] = useState('');
@@ -33,13 +35,18 @@ export const ProjectModal = ({ onClose }: ProjectModalProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({
-      title,
-      description,
-      status,
-      dueDate,
-      tags
+    if (!title.trim()) return;
+
+    addProject({
+      name: title.trim(),
+      description: description.trim(),
+      category,
+      status: 'active',
+      progress: 0,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: dueDate?.toISOString().split('T')[0],
     });
+    
     onClose();
   };
 
@@ -93,16 +100,17 @@ export const ProjectModal = ({ onClose }: ProjectModalProps) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Initial Status</Label>
-              <Select value={status} onValueChange={setStatus}>
+              <Label>Category</Label>
+              <Select value={category} onValueChange={(value: any) => setCategory(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="done">Done</SelectItem>
+                  <SelectItem value="tech">Technology</SelectItem>
+                  <SelectItem value="academic">Academic</SelectItem>
+                  <SelectItem value="research">Research</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="personal">Personal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
