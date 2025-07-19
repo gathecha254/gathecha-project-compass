@@ -42,7 +42,7 @@ export const TaskModal = ({ projectId, onClose }: TaskModalProps) => {
       description: description.trim(),
       priority,
       status: 'todo',
-      projectId,
+      projectId: projectId.toString(),
       dueDate: dueDate?.toISOString().split('T')[0] || '',
       progress: 0,
       tags,

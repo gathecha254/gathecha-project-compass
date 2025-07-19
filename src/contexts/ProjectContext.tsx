@@ -1,13 +1,16 @@
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 interface Task {
-  id: number;
+  id: string;
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high';
   status: 'todo' | 'in-progress' | 'review' | 'done';
-  projectId: number;
+  projectId: string;
   dueDate: string;
   progress: number;
   tags: string[];
@@ -17,7 +20,7 @@ interface Task {
 }
 
 interface Project {
-  id: number;
+  id: string;
   name: string;
   description: string;
   category: 'tech' | 'academic' | 'research' | 'business' | 'personal';
@@ -31,13 +34,14 @@ interface Project {
 interface ProjectContextType {
   projects: Project[];
   tasks: Task[];
-  addProject: (project: Omit<Project, 'id' | 'tasks'>) => void;
-  addTask: (task: Omit<Task, 'id'>) => void;
-  updateTask: (id: number, updates: Partial<Task>) => void;
-  deleteTask: (id: number) => void;
-  beginTask: (taskId: number) => void;
-  completeTask: (taskId: number) => void;
-  getProjectTasks: (projectId: number) => Task[];
+  loading: boolean;
+  addProject: (project: Omit<Project, 'id' | 'tasks'>) => Promise<void>;
+  addTask: (task: Omit<Task, 'id'>) => Promise<void>;
+  updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  beginTask: (taskId: string) => Promise<void>;
+  completeTask: (taskId: string) => Promise<void>;
+  getProjectTasks: (projectId: string) => Task[];
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -45,128 +49,283 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 export const ProjectProvider = ({ children }: { children: React.ReactNode }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-  // Auto-update project status based on task completion
-  const updateProjectStatus = (projectId: number) => {
-    const projectTasks = tasks.filter(task => task.projectId === projectId);
-    if (projectTasks.length === 0) return 'todo';
-
-    const completedTasks = projectTasks.filter(task => task.completed);
-    const inProgressTasks = projectTasks.filter(task => task.status === 'in-progress');
-    const reviewTasks = projectTasks.filter(task => task.status === 'review');
-
-    let newStatus: string;
-    let newProgress: number;
-
-    if (completedTasks.length === projectTasks.length) {
-      newStatus = 'done';
-      newProgress = 100;
-    } else if (reviewTasks.length > 0 || completedTasks.length > 0) {
-      newStatus = 'review';
-      newProgress = Math.round((completedTasks.length / projectTasks.length) * 100);
-    } else if (inProgressTasks.length > 0) {
-      newStatus = 'in-progress';
-      newProgress = Math.round((completedTasks.length / projectTasks.length) * 100);
+  // Load projects and tasks when user is authenticated
+  useEffect(() => {
+    if (user) {
+      loadProjects();
+      loadTasks();
     } else {
-      newStatus = 'todo';
-      newProgress = 0;
+      setProjects([]);
+      setTasks([]);
+      setLoading(false);
     }
+  }, [user]);
 
-    setProjects(prev => prev.map(project => 
-      project.id === projectId 
-        ? { ...project, status: newStatus as any, progress: newProgress }
-        : project
-    ));
-  };
-
-  const addProject = (project: Omit<Project, 'id' | 'tasks'>) => {
-    const newProject = {
-      ...project,
-      id: Date.now(),
-      tasks: [], // Will be managed separately in tasks state
-    };
-    setProjects(prev => [...prev, newProject]);
-
-    // Auto-create "Review & Comments" task
-    const reviewTask: Omit<Task, 'id'> = {
-      title: 'Review & Comments',
-      description: 'Final review and collect feedback on the project',
-      priority: 'medium',
-      status: 'todo',
-      projectId: newProject.id,
-      dueDate: project.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      progress: 0,
-      tags: ['review', 'feedback'],
-      completed: false,
-    };
-
-    const newTask = {
-      ...reviewTask,
-      id: Date.now() + 1,
-    };
-    setTasks(prev => [...prev, newTask]);
-  };
-
-  const addTask = (task: Omit<Task, 'id'>) => {
-    const newTask = {
-      ...task,
-      id: Date.now(),
-    };
-    setTasks(prev => [...prev, newTask]);
+  const loadProjects = async () => {
+    if (!user) return;
     
-    // Update project status after adding task
-    setTimeout(() => updateProjectStatus(task.projectId), 0);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setProjects(data?.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        category: p.category,
+        status: p.status,
+        progress: p.progress,
+        startDate: p.start_date,
+        endDate: p.end_date || undefined,
+        tasks: []
+      })) || []);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+      toast.error('Failed to load projects');
+    }
   };
 
-  const updateTask = (id: number, updates: Partial<Task>) => {
-    setTasks(prev => prev.map(task => 
-      task.id === id ? { ...task, ...updates } : task
-    ));
+  const loadTasks = async () => {
+    if (!user) return;
     
-    // Update project status after task update
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setTasks(data?.map(t => ({
+        id: t.id,
+        title: t.title,
+        description: t.description || '',
+        priority: t.priority,
+        status: t.status,
+        projectId: t.project_id,
+        dueDate: t.due_date || '',
+        progress: t.progress,
+        tags: t.tags || [],
+        estimatedHours: t.estimated_hours || undefined,
+        actualHours: t.actual_hours || undefined,
+        completed: t.completed
+      })) || []);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      toast.error('Failed to load tasks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-update project status using edge function
+  const updateProjectStatus = async (projectId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('auto-update-project-status', {
+        body: { projectId }
+      });
+
+      if (error) throw error;
+      
+      // Reload projects to get updated status
+      await loadProjects();
+    } catch (error) {
+      console.error('Error updating project status:', error);
+    }
+  };
+
+  const addProject = async (project: Omit<Project, 'id' | 'tasks'>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({
+          name: project.name,
+          description: project.description,
+          category: project.category,
+          status: project.status,
+          progress: project.progress,
+          start_date: project.startDate,
+          end_date: project.endDate || null,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newProject = {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        category: data.category,
+        status: data.status,
+        progress: data.progress,
+        startDate: data.start_date,
+        endDate: data.end_date || undefined,
+        tasks: []
+      };
+
+      setProjects(prev => [newProject, ...prev]);
+
+      // Auto-create "Review & Comments" task
+      await addTask({
+        title: 'Review & Comments',
+        description: 'Final review and collect feedback on the project',
+        priority: 'medium',
+        status: 'todo',
+        projectId: data.id,
+        dueDate: project.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        progress: 0,
+        tags: ['review', 'feedback'],
+        completed: false,
+      });
+
+      toast.success('Project created successfully!');
+    } catch (error) {
+      console.error('Error adding project:', error);
+      toast.error('Failed to create project');
+    }
+  };
+
+  const addTask = async (task: Omit<Task, 'id'>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          status: task.status,
+          project_id: task.projectId,
+          due_date: task.dueDate || null,
+          progress: task.progress,
+          tags: task.tags,
+          estimated_hours: task.estimatedHours || null,
+          actual_hours: task.actualHours || null,
+          completed: task.completed,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newTask = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        priority: data.priority,
+        status: data.status,
+        projectId: data.project_id,
+        dueDate: data.due_date || '',
+        progress: data.progress,
+        tags: data.tags || [],
+        estimatedHours: data.estimated_hours || undefined,
+        actualHours: data.actual_hours || undefined,
+        completed: data.completed
+      };
+
+      setTasks(prev => [newTask, ...prev]);
+      
+      // Update project status after adding task
+      await updateProjectStatus(task.projectId);
+      
+      toast.success('Task created successfully!');
+    } catch (error) {
+      console.error('Error adding task:', error);
+      toast.error('Failed to create task');
+    }
+  };
+
+  const updateTask = async (id: string, updates: Partial<Task>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: updates.title,
+          description: updates.description,
+          priority: updates.priority,
+          status: updates.status,
+          due_date: updates.dueDate || null,
+          progress: updates.progress,
+          tags: updates.tags,
+          estimated_hours: updates.estimatedHours || null,
+          actual_hours: updates.actualHours || null,
+          completed: updates.completed
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setTasks(prev => prev.map(task => 
+        task.id === id ? { ...task, ...updates } : task
+      ));
+      
+      // Update project status after task update
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        await updateProjectStatus(task.projectId);
+      }
+      
+      toast.success('Task updated successfully!');
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast.error('Failed to update task');
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    if (!user) return;
+
     const task = tasks.find(t => t.id === id);
-    if (task) {
-      setTimeout(() => updateProjectStatus(task.projectId), 0);
+    if (!task) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setTasks(prev => prev.filter(task => task.id !== id));
+      
+      // Update project status after deleting task
+      await updateProjectStatus(task.projectId);
+      
+      toast.success('Task deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast.error('Failed to delete task');
     }
   };
 
-  const deleteTask = (id: number) => {
-    const task = tasks.find(t => t.id === id);
-    setTasks(prev => prev.filter(task => task.id !== id));
-    
-    // Update project status after deleting task
-    if (task) {
-      setTimeout(() => updateProjectStatus(task.projectId), 0);
-    }
+  const beginTask = async (taskId: string) => {
+    await updateTask(taskId, { status: 'in-progress', progress: 10 });
   };
 
-  const beginTask = (taskId: number) => {
-    setTasks(prev => prev.map(task => 
-      task.id === taskId 
-        ? { ...task, status: 'in-progress', progress: 10 }
-        : task
-    ));
-    
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      setTimeout(() => updateProjectStatus(task.projectId), 0);
-    }
+  const completeTask = async (taskId: string) => {
+    await updateTask(taskId, { completed: true, status: 'done', progress: 100 });
   };
 
-  const completeTask = (taskId: number) => {
-    setTasks(prev => prev.map(task => 
-      task.id === taskId 
-        ? { ...task, completed: true, status: 'done', progress: 100 }
-        : task
-    ));
-    
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      setTimeout(() => updateProjectStatus(task.projectId), 0);
-    }
-  };
-
-  const getProjectTasks = (projectId: number) => {
+  const getProjectTasks = (projectId: string) => {
     return tasks.filter(task => task.projectId === projectId);
   };
 
@@ -174,6 +333,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     <ProjectContext.Provider value={{
       projects,
       tasks,
+      loading,
       addProject,
       addTask,
       updateTask,

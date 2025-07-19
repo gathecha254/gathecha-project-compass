@@ -90,13 +90,13 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
     return allProjects.filter((project: any) => project.status === status);
   };
 
-  const getProjectTasksCount = (projectId: number) => {
+  const getProjectTasksCount = (projectId: string) => {
     const projectTasks = getProjectTasks(projectId);
     const completed = projectTasks.filter(task => task.completed).length;
     return { completed, total: projectTasks.length };
   };
 
-  const getProjectProgress = (projectId: number) => {
+  const getProjectProgress = (projectId: string) => {
     const projectTasks = getProjectTasks(projectId);
     if (projectTasks.length === 0) return 0;
     const completed = projectTasks.filter(task => task.completed).length;
@@ -152,13 +152,13 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
                         <>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{getProjectProgress(project.id)}%</span>
+                            <span className="font-medium">{getProjectProgress(project.id.toString())}%</span>
                           </div>
-                          <Progress value={getProjectProgress(project.id)} className="h-2" />
+                          <Progress value={getProjectProgress(project.id.toString())} className="h-2" />
                           
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Tasks</span>
-                            <span className="font-medium">{getProjectTasksCount(project.id).completed}/{getProjectTasksCount(project.id).total}</span>
+                            <span className="font-medium">{getProjectTasksCount(project.id.toString()).completed}/{getProjectTasksCount(project.id.toString()).total}</span>
                           </div>
                         </>
                       ) : (
