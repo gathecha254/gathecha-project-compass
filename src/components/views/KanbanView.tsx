@@ -12,7 +12,7 @@ interface KanbanViewProps {
 }
 
 export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
-  const { projects, tasks, getProjectTasks, beginTask, completeTask } = useProject();
+  const { projects, tasks, getProjectTasks, beginTask, completeTask, deleteProject } = useProject();
 
   const columns = [
     { id: 'todo', title: 'To Do', color: 'bg-gray-100 dark:bg-gray-800' },
@@ -127,7 +127,21 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
                 <Card key={project.id} className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <CardTitle className="text-lg font-semibold">{project.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        {/* Color label circle */}
+                        {project.colorLabel && (
+                          <span
+                            className="inline-block w-4 h-4 rounded-full border border-border mr-2"
+                            style={{ backgroundColor: project.colorLabel }}
+                            title="Project color"
+                          />
+                        )}
+                        <CardTitle className="text-lg font-semibold">{project.name}</CardTitle>
+                        {/* Priority badge */}
+                        <Badge variant={project.priority === 'high' ? 'destructive' : project.priority === 'medium' ? 'default' : 'secondary'} className="ml-2">
+                          {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
+                        </Badge>
+                      </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -138,51 +152,39 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
                           <DropdownMenuItem>Add New Task</DropdownMenuItem>
                           <DropdownMenuItem>Edit Project</DropdownMenuItem>
                           <DropdownMenuItem>Archive Project</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Delete Project</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={async (e) => {
+                            e.preventDefault();
+                            if (window.confirm('Are you sure you want to delete this project? This will delete all related tasks.')) {
+                              await deleteProject(project.id);
+                            }
+                          }}>Delete Project</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                   </CardHeader>
                   
-                  <CardContent className="pt-0">
+                  <CardContent>
                     <p className="text-sm text-muted-foreground mb-4">{project.description}</p>
                     
                     <div className="space-y-3">
-                      {projects.length > 0 ? (
-                        <>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{getProjectProgress(project.id.toString())}%</span>
-                          </div>
-                          <Progress value={getProjectProgress(project.id.toString())} className="h-2" />
-                          
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Tasks</span>
-                            <span className="font-medium">{getProjectTasksCount(project.id.toString()).completed}/{getProjectTasksCount(project.id.toString()).total}</span>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{project.progress}%</span>
-                          </div>
-                          <Progress value={project.progress} className="h-2" />
-                          
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Tasks</span>
-                            <span className="font-medium">{project.tasks?.filter((t: any) => t.completed).length || 0}/{project.tasks?.length || 0}</span>
-                          </div>
-                        </>
-                      )}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Progress</span>
+                        <span className="font-medium">{getProjectProgress(project.id.toString())}%</span>
+                      </div>
+                      <Progress value={getProjectProgress(project.id.toString())} className="h-2" />
+                      
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Tasks</span>
+                        <span className="font-medium">{getProjectTasksCount(project.id.toString()).completed}/{getProjectTasksCount(project.id.toString()).total}</span>
+                      </div>
                       
                       <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        <span>Due {(project as any).endDate || (project as any).dueDate}</span>
+                        <span>Due {project.endDate || project.dueDate}</span>
                       </div>
                       
                       <div className="flex flex-wrap gap-1">
-                        {((project as any).tags || []).map((tag: string) => (
+                        {(project.tags || []).map((tag: string) => (
                           <Badge key={tag} variant="outline" className="text-xs">
                             {tag}
                           </Badge>

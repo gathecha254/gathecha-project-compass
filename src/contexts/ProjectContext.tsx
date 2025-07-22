@@ -1,44 +1,55 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// Update Task interface
+type TaskStatus = 'not-started' | 'in-progress' | 'complete';
 interface Task {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   priority: 'low' | 'medium' | 'high';
   status: 'todo' | 'in-progress' | 'review' | 'done';
   projectId: string;
-  dueDate: string;
+  dueDate?: string;
   progress: number;
   tags: string[];
   estimatedHours?: number;
   actualHours?: number;
   completed: boolean;
+  isReviewTask?: boolean;
+  started_at?: string | null;
+  completed_at?: string | null;
 }
 
+// Update Project interface
 interface Project {
   id: string;
   name: string;
-  description: string;
-  category: 'tech' | 'academic' | 'research' | 'business' | 'personal';
-  status: 'active' | 'completed' | 'paused';
+
+  description?: string;
+  category: string;
+  status: 'todo' | 'in-progress' | 'review' | 'done';
   progress: number;
   startDate: string;
   endDate?: string;
   tasks: Task[];
+  priority: 'low' | 'medium' | 'high';
+  colorLabel?: string;
+  tags: string[];
 }
 
 interface ProjectContextType {
   projects: Project[];
   tasks: Task[];
   loading: boolean;
-  addProject: (project: Omit<Project, 'id' | 'tasks'>) => Promise<void>;
+  addProject: (project: Omit<Project, 'id' | 'tasks'> & { tasks: Array<{ title: string; description?: string; isReviewTask?: boolean }> }) => Promise<void>;
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   beginTask: (taskId: string) => Promise<void>;
   completeTask: (taskId: string) => Promise<void>;
   getProjectTasks: (projectId: string) => Task[];
@@ -88,7 +99,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         progress: p.progress,
         startDate: p.start_date,
         endDate: p.end_date || undefined,
-        tasks: []
+        tasks: [],
+        priority: p.priority,
+        colorLabel: p.color_label,
+        tags: p.tags || [],
       })) || []);
     } catch (error) {
       console.error('Error loading projects:', error);
@@ -120,7 +134,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         tags: t.tags || [],
         estimatedHours: t.estimated_hours || undefined,
         actualHours: t.actual_hours || undefined,
-        completed: t.completed
+        completed: t.completed,
+        isReviewTask: t.is_review_task,
+        started_at: t.started_at,
+        completed_at: t.completed_at,
       })) || []);
     } catch (error) {
       console.error('Error loading tasks:', error);
@@ -146,7 +163,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
-  const addProject = async (project: Omit<Project, 'id' | 'tasks'>) => {
+  const addProject = async (project: Omit<Project, 'id' | 'tasks'> & { tasks: Array<{ title: string; description?: string; isReviewTask?: boolean }> }) => {
     if (!user) return;
 
     try {
@@ -160,7 +177,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
           progress: project.progress,
           start_date: project.startDate,
           end_date: project.endDate || null,
-          user_id: user.id
+          user_id: user.id,
+          priority: project.priority,
+          color_label: project.colorLabel,
+          tags: project.tags || [],
         })
         .select()
         .single();
@@ -176,23 +196,31 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         progress: data.progress,
         startDate: data.start_date,
         endDate: data.end_date || undefined,
-        tasks: []
+        tasks: [],
+        priority: data.priority,
+        colorLabel: data.color_label,
+        tags: data.tags || [],
       };
 
       setProjects(prev => [newProject, ...prev]);
 
-      // Auto-create "Review & Comments" task
-      await addTask({
-        title: 'Review & Comments',
-        description: 'Final review and collect feedback on the project',
-        priority: 'medium',
-        status: 'todo',
-        projectId: data.id,
-        dueDate: project.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        progress: 0,
-        tags: ['review', 'feedback'],
-        completed: false,
-      });
+      // Create all initial tasks (including Review & Comments)
+      for (const t of project.tasks) {
+        await addTask({
+          title: t.title,
+          description: t.description || '',
+          priority: 'medium', // or allow user to set per task in future
+          status: 'todo',
+          projectId: data.id,
+          dueDate: project.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          progress: 0,
+          tags: [],
+          completed: false,
+          isReviewTask: !!t.isReviewTask,
+          started_at: null,
+          completed_at: null,
+        });
+      }
 
       toast.success('Project created successfully!');
     } catch (error) {
@@ -219,7 +247,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
           estimated_hours: task.estimatedHours || null,
           actual_hours: task.actualHours || null,
           completed: task.completed,
-          user_id: user.id
+          user_id: user.id,
+          is_review_task: task.isReviewTask || false,
+          started_at: task.started_at || null,
+          completed_at: task.completed_at || null,
         })
         .select()
         .single();
@@ -238,7 +269,10 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         tags: data.tags || [],
         estimatedHours: data.estimated_hours || undefined,
         actualHours: data.actual_hours || undefined,
-        completed: data.completed
+        completed: data.completed,
+        isReviewTask: data.is_review_task,
+        started_at: data.started_at,
+        completed_at: data.completed_at,
       };
 
       setTasks(prev => [newTask, ...prev]);
@@ -269,7 +303,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
           tags: updates.tags,
           estimated_hours: updates.estimatedHours || null,
           actual_hours: updates.actualHours || null,
-          completed: updates.completed
+          completed: updates.completed,
+          started_at: updates.started_at || null,
+          completed_at: updates.completed_at || null,
         })
         .eq('id', id)
         .eq('user_id', user.id);
@@ -320,6 +356,24 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  const deleteProject = async (id: string) => {
+    if (!user) return;
+    try {
+      const { error } = await db
+        .from('projects')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      setProjects(prev => prev.filter(project => project.id !== id));
+      setTasks(prev => prev.filter(task => task.projectId !== id));
+      toast.success('Project deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast.error('Failed to delete project');
+    }
+  };
+
   const beginTask = async (taskId: string) => {
     await updateTask(taskId, { status: 'in-progress', progress: 10 });
   };
@@ -341,6 +395,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
       addTask,
       updateTask,
       deleteTask,
+      deleteProject,
       beginTask,
       completeTask,
       getProjectTasks

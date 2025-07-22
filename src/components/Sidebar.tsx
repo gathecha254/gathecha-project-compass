@@ -18,6 +18,8 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { ViewSelector } from './ViewSelector';
+import { useProject } from '@/contexts/ProjectContext';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -30,6 +32,7 @@ interface SidebarProps {
 export const Sidebar = ({ collapsed, onToggle, currentView, onViewChange, onNewProject }: SidebarProps) => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [projectsExpanded, setProjectsExpanded] = useState(true);
+  const { projects, tasks } = useProject();
 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -130,27 +133,55 @@ export const Sidebar = ({ collapsed, onToggle, currentView, onViewChange, onNewP
               <div className="mt-2">
                 <ScrollArea className="h-48">
                   <div className="space-y-1 px-2">
-                    {mockProjects.slice(0, 5).map((project) => (
-                      <div
-                        key={project.id}
-                        className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer text-sm"
-                      >
-                        <div className="flex items-center space-x-2 flex-1 min-w-0">
-                          <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
-                          <span className="truncate">{project.name}</span>
+                    {projects.slice(0, 5).map((project) => {
+                      const projectTasks = tasks.filter(t => t.projectId === project.id);
+                      return (
+                        <div
+                          key={project.id}
+                          className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer text-sm"
+                        >
+                          <div className="flex items-center space-x-2 flex-1 min-w-0">
+                            <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
+                            <span className="truncate">{project.name}</span>
+                          </div>
+                          <Badge variant="secondary" className="text-xs ml-2">
+                            {projectTasks.length}
+                          </Badge>
                         </div>
-                        <Badge variant="secondary" className="text-xs ml-2">
-                          {project.taskCount}
-                        </Badge>
-                      </div>
-                    ))}
-                    {mockProjects.length > 5 && (
-                      <Button
-                        variant="ghost"
-                        className="w-full text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        View all {mockProjects.length} projects
-                      </Button>
+                      );
+                    })}
+                    {projects.length > 5 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="w-full text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            View all {projects.length} projects
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 max-h-64 overflow-y-auto">
+                          <div className="space-y-1">
+                            {projects.map((project) => {
+                              const projectTasks = tasks.filter(t => t.projectId === project.id);
+                              return (
+                                <div
+                                  key={project.id}
+                                  className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer text-sm"
+                                >
+                                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                    <div className={`w-2 h-2 rounded-full ${getStatusColor(project.status)}`} />
+                                    <span className="truncate">{project.name}</span>
+                                  </div>
+                                  <Badge variant="secondary" className="text-xs ml-2">
+                                    {projectTasks.length}
+                                  </Badge>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     )}
                   </div>
                 </ScrollArea>

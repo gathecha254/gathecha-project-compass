@@ -35,6 +35,21 @@ create table public.tasks (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Add new fields to projects table
+alter table public.projects add column if not exists priority text check (priority in ('low', 'medium', 'high')) default 'medium';
+alter table public.projects add column if not exists color_label text;
+alter table public.projects add column if not exists tags text[] default '{}';
+-- Update status enum for projects
+alter table public.projects alter column status type text using status::text;
+-- For new installs, update the check constraint:
+alter table public.projects drop constraint if exists projects_status_check;
+alter table public.projects add constraint projects_status_check check (status in ('todo', 'in-progress', 'review', 'done'));
+
+-- Add new fields to tasks table
+alter table public.tasks add column if not exists is_review_task boolean default false;
+alter table public.tasks add column if not exists started_at timestamp with time zone;
+alter table public.tasks add column if not exists completed_at timestamp with time zone;
+
 -- Create indexes for better performance
 create index projects_user_id_idx on public.projects(user_id);
 create index projects_status_idx on public.projects(status);
