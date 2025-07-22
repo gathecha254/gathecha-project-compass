@@ -1,8 +1,8 @@
-
 import { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Task {
   id: string;
@@ -52,6 +52,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
+  // Type casting helper for supabase client
+  const db = supabase as any;
+
   // Load projects and tasks when user is authenticated
   useEffect(() => {
     if (user) {
@@ -68,7 +71,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     if (!user) return;
     
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('projects')
         .select('*')
         .eq('user_id', user.id)
@@ -76,7 +79,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (error) throw error;
       
-      setProjects(data?.map(p => ({
+      setProjects(data?.map((p: any) => ({
         id: p.id,
         name: p.name,
         description: p.description || '',
@@ -97,7 +100,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     if (!user) return;
     
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('tasks')
         .select('*')
         .eq('user_id', user.id)
@@ -105,7 +108,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (error) throw error;
       
-      setTasks(data?.map(t => ({
+      setTasks(data?.map((t: any) => ({
         id: t.id,
         title: t.title,
         description: t.description || '',
@@ -130,7 +133,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   // Auto-update project status using edge function
   const updateProjectStatus = async (projectId: string) => {
     try {
-      const { error } = await supabase.functions.invoke('auto-update-project-status', {
+      const { error } = await db.functions.invoke('auto-update-project-status', {
         body: { projectId }
       });
 
@@ -147,7 +150,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('projects')
         .insert({
           name: project.name,
@@ -202,7 +205,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('tasks')
         .insert({
           title: task.title,
@@ -254,7 +257,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     if (!user) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('tasks')
         .update({
           title: updates.title,
@@ -297,7 +300,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     if (!task) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from('tasks')
         .delete()
         .eq('id', id)
