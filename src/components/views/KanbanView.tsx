@@ -139,7 +139,7 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
                         <CardTitle className="text-lg font-semibold">{project.name}</CardTitle>
                         {/* Priority badge */}
                         <Badge variant={project.priority === 'high' ? 'destructive' : project.priority === 'medium' ? 'default' : 'secondary'} className="ml-2">
-                          {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
+                          {project.priority?.charAt(0).toUpperCase() + project.priority?.slice(1)}
                         </Badge>
                       </div>
                       <DropdownMenu>

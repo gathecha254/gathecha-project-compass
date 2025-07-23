@@ -18,7 +18,7 @@ interface ProjectModalProps {
   onClose: () => void;
 }
 
-export const ProjectModal = ({ onClose }: ProjectModalProps) => {
+  export const ProjectModal = ({ onClose }: ProjectModalProps) => {
   const { addProject } = useProject();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -296,109 +296,3 @@ export const ProjectModal = ({ onClose }: ProjectModalProps) => {
   );
 };
 
-// ProjectDetailModal: shows project details, tasks, and allows editing
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useProject } from '@/contexts/ProjectContext';
-import { useState } from 'react';
-
-export const ProjectDetailModal = ({ project, open, onClose }: { project: any, open: boolean, onClose: () => void }) => {
-  const { updateTask, beginTask, completeTask, updateTask: updateTaskFn, updateProject, addTask, deleteProject } = useProject();
-  const [editMode, setEditMode] = useState(false);
-  const [title, setTitle] = useState(project.name);
-  const [description, setDescription] = useState(project.description || '');
-  const [tags, setTags] = useState(project.tags || []);
-  const [priority, setPriority] = useState(project.priority || 'medium');
-  const [colorLabel, setColorLabel] = useState(project.colorLabel || '#3b82f6');
-  const [dueDate, setDueDate] = useState(project.endDate || '');
-
-  // TODO: Add updateProject logic in context for full edit support
-
-  const handleSave = () => {
-    // updateProject({ ...project, name: title, description, tags, priority, colorLabel, endDate: dueDate });
-    setEditMode(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Project Details</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-6">
-          <div className="flex items-center gap-4">
-            {editMode ? (
-              <Input value={title} onChange={e => setTitle(e.target.value)} className="text-2xl font-bold" />
-            ) : (
-              <h2 className="text-2xl font-bold">{title}</h2>
-            )}
-            <span className="inline-block w-4 h-4 rounded-full border border-border" style={{ backgroundColor: colorLabel }} />
-            <Badge variant={priority === 'high' ? 'destructive' : priority === 'medium' ? 'default' : 'secondary'}>
-              {priority.charAt(0).toUpperCase() + priority.slice(1)}
-            </Badge>
-            <Button size="sm" variant="outline" onClick={() => setEditMode(!editMode)}>{editMode ? 'Cancel' : 'Edit'}</Button>
-            {editMode && <Button size="sm" onClick={handleSave}>Save</Button>}
-          </div>
-          <div>
-            {editMode ? (
-              <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} />
-            ) : (
-              <p className="text-muted-foreground">{description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Due:</span>
-            {editMode ? (
-              <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-40" />
-            ) : (
-              <span>{dueDate}</span>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {(tags || []).map((tag: string) => (
-              <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-            ))}
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium">{project.progress}%</span>
-            </div>
-            <Progress value={project.progress} className="h-2" />
-            <div className="flex items-center gap-2 text-xs">
-              <span>Status:</span>
-              <Badge>{project.status.replace('-', ' ')}</Badge>
-            </div>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">Tasks</h3>
-            <div className="space-y-2">
-              {(project.tasks || []).map((task: any) => (
-                <div key={task.id} className="flex items-center gap-2 p-2 border rounded">
-                  <span className="flex-1">{task.title}</span>
-                  <Badge variant={task.isReviewTask ? 'secondary' : 'outline'}>{task.isReviewTask ? 'Review' : task.status.replace('-', ' ')}</Badge>
-                  <Button size="xs" variant="outline" onClick={() => beginTask(task.id)} disabled={task.status === 'in-progress' || task.completed}>Begin</Button>
-                  <Button size="xs" variant="outline" onClick={() => completeTask(task.id)} disabled={task.completed}>Complete</Button>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>Close</Button>
-            <Button variant="destructive" onClick={async () => {
-              if (window.confirm('Are you sure you want to delete this project? This will delete all related tasks.')) {
-                await deleteProject(project.id);
-                onClose();
-              }
-            }}>Delete Project</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
