@@ -21,72 +21,9 @@ export const KanbanView = ({ onNewProject }: KanbanViewProps) => {
     { id: 'done', title: 'Done', color: 'bg-green-100 dark:bg-green-900/20' },
   ];
 
-  const mockProjects = [
-    {
-      id: 1,
-      name: 'Tech Project',
-      description: 'Building a modern web application with React and TypeScript',
-      status: 'in-progress',
-      progress: 65,
-      dueDate: '2024-07-20',
-      tasks: [
-        { title: 'User authentication', completed: true },
-        { title: 'Dashboard UI', completed: true },
-        { title: 'API integration', completed: false },
-        { title: 'Testing', completed: false }
-      ],
-      tags: ['React', 'TypeScript', 'Web Development']
-    },
-    {
-      id: 2,
-      name: 'Data Science Study',
-      description: 'Customer segmentation analysis using machine learning',
-      status: 'todo',
-      progress: 20,
-      dueDate: '2024-07-25',
-      tasks: [
-        { title: 'Data collection', completed: true },
-        { title: 'Data cleaning', completed: false },
-        { title: 'Model training', completed: false },
-        { title: 'Analysis report', completed: false }
-      ],
-      tags: ['Python', 'Machine Learning', 'Analytics']
-    },
-    {
-      id: 3,
-      name: 'Research Paper',
-      description: 'AI ethics and responsible development practices',
-      status: 'review',
-      progress: 90,
-      dueDate: '2024-07-22',
-      tasks: [
-        { title: 'Literature review', completed: true },
-        { title: 'Data analysis', completed: true },
-        { title: 'Draft writing', completed: true },
-        { title: 'Peer review', completed: false }
-      ],
-      tags: ['Research', 'AI Ethics', 'Academic']
-    },
-    {
-      id: 4,
-      name: 'Business Analysis',
-      description: 'Process optimization and efficiency improvements',
-      status: 'done',
-      progress: 100,
-      dueDate: '2024-07-18',
-      tasks: [
-        { title: 'Current state analysis', completed: true },
-        { title: 'Process mapping', completed: true },
-        { title: 'Recommendations', completed: true },
-        { title: 'Implementation plan', completed: true }
-      ],
-      tags: ['Business', 'Process', 'Optimization']
-    }
-  ];
-
   const getProjectsByStatus = (status: string) => {
-    // Use real projects from context, fallback to mock data if empty
-    const allProjects = projects.length > 0 ? projects : mockProjects;
+    // Use real projects from context
+    const allProjects = projects;
     return allProjects.filter((project: any) => project.status === status);
   };
 

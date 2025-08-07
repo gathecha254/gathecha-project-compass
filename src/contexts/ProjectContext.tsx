@@ -69,9 +69,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   // Load projects and tasks when user is authenticated
   useEffect(() => {
     if (user) {
+      console.log('User authenticated, loading data...');
       loadProjects();
       loadTasks();
     } else {
+      console.log('User not authenticated, clearing data.');
       setProjects([]);
       setTasks([]);
       setLoading(false);
@@ -81,6 +83,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   const loadProjects = async () => {
     if (!user) return;
     
+    console.log('Loading projects...');
     try {
       const { data, error } = await db
         .from('projects')
@@ -90,6 +93,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (error) throw error;
       
+      console.log('Projects loaded:', data);
       setProjects(data?.map((p: any) => ({
         id: p.id,
         name: p.name,
@@ -113,6 +117,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   const loadTasks = async () => {
     if (!user) return;
     
+    console.log('Loading tasks...');
     try {
       const { data, error } = await db
         .from('tasks')
@@ -122,6 +127,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (error) throw error;
       
+      console.log('Tasks loaded:', data);
       setTasks(data?.map((t: any) => ({
         id: t.id,
         title: t.title,
@@ -166,6 +172,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   const addProject = async (project: Omit<Project, 'id' | 'tasks'> & { tasks: Array<{ title: string; description?: string; isReviewTask?: boolean }> }) => {
     if (!user) return;
 
+    console.log('Adding project:', project);
     try {
       const { data, error } = await db
         .from('projects')
@@ -187,6 +194,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (error) throw error;
 
+      console.log('Project added to DB:', data);
+
       const newProject = {
         id: data.id,
         name: data.name,
@@ -203,9 +212,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
       };
 
       setProjects(prev => [newProject, ...prev]);
+      console.log('Projects state after adding:', [newProject, ...projects]);
 
       // Create all initial tasks (including Review & Comments)
       for (const t of project.tasks) {
+        console.log('Adding task for new project:', t);
         await addTask({
           title: t.title,
           description: t.description || '',
@@ -232,6 +243,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   const addTask = async (task: Omit<Task, 'id'>) => {
     if (!user) return;
 
+    console.log('Adding task:', task);
     try {
       const { data, error } = await db
         .from('tasks')
@@ -257,6 +269,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (error) throw error;
 
+      console.log('Task added to DB:', data);
+
       const newTask = {
         id: data.id,
         title: data.title,
@@ -276,6 +290,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
       };
 
       setTasks(prev => [newTask, ...prev]);
+      console.log('Tasks state after adding:', [newTask, ...tasks]);
       
       // Update project status after adding task
       await updateProjectStatus(task.projectId);
@@ -290,6 +305,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   const updateTask = async (id: string, updates: Partial<Task>) => {
     if (!user) return;
 
+    console.log('Updating task with id:', id, 'updates:', updates);
     try {
       const { error } = await db
         .from('tasks')
@@ -312,7 +328,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (error) throw error;
 
+      console.log('Task updated in DB:', id);
       setTasks(prev => prev.map(task => 
+        task.id === id ? { ...task, ...updates } : task
+      ));
+      console.log('Tasks state after updating:', tasks.map(task => 
         task.id === id ? { ...task, ...updates } : task
       ));
       
@@ -335,6 +355,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     const task = tasks.find(t => t.id === id);
     if (!task) return;
 
+    console.log('Deleting task with id:', id);
     try {
       const { error } = await db
         .from('tasks')
@@ -344,7 +365,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (error) throw error;
 
+      console.log('Task deleted from DB:', id);
       setTasks(prev => prev.filter(task => task.id !== id));
+      console.log('Tasks state after deleting:', tasks.filter(task => task.id !== id));
       
       // Update project status after deleting task
       await updateProjectStatus(task.projectId);
@@ -358,6 +381,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
   const deleteProject = async (id: string) => {
     if (!user) return;
+    console.log('Deleting project with id:', id);
     try {
       const { error } = await db
         .from('projects')
@@ -365,8 +389,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         .eq('id', id)
         .eq('user_id', user.id);
       if (error) throw error;
+      console.log('Project deleted from DB:', id);
       setProjects(prev => prev.filter(project => project.id !== id));
       setTasks(prev => prev.filter(task => task.projectId !== id));
+      console.log('Projects state after deleting:', projects.filter(project => project.id !== id));
+      console.log('Tasks state after deleting associated tasks:', tasks.filter(task => task.projectId !== id));
       toast.success('Project deleted successfully!');
     } catch (error) {
       console.error('Error deleting project:', error);
@@ -375,10 +402,12 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   };
 
   const beginTask = async (taskId: string) => {
+    console.log('Beginning task:', taskId);
     await updateTask(taskId, { status: 'in-progress', progress: 10 });
   };
 
   const completeTask = async (taskId: string) => {
+    console.log('Completing task:', taskId);
     await updateTask(taskId, { completed: true, status: 'done', progress: 100 });
   };
 
