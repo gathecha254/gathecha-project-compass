@@ -1,17 +1,20 @@
+// src/contexts/ProjectContext.tsx (Updated)
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// Update Task interface
-type TaskStatus = 'not-started' | 'in-progress' | 'complete';
+// --- Update Task interface ---
+// Added 'cancelled' to the status union type
+type TaskStatus = 'todo' | 'in-progress' | 'done' | 'cancelled';
 interface Task {
   id: string;
   title: string;
   description?: string;
   priority: 'low' | 'medium' | 'high';
-  status: 'todo' | 'in-progress' | 'review' | 'done';
+  // Updated status type to include 'cancelled'
+  status: 'todo' | 'in-progress' | 'done' | 'cancelled';
   projectId: string;
   dueDate?: string;
   progress: number;
@@ -23,15 +26,17 @@ interface Task {
   started_at?: string | null;
   completed_at?: string | null;
 }
+// --- End Update Task interface ---
 
-// Update Project interface
+// --- Update Project interface (if needed, though not strictly necessary for cancelTask) ---
 interface Project {
   id: string;
   name: string;
-
   description?: string;
   category: string;
-  status: 'todo' | 'in-progress' | 'review' | 'done';
+  // Updated status type if projects can also be cancelled (optional)
+  // status: 'todo' | 'in-progress' | 'review' | 'done' | 'cancelled';
+  status: 'todo' | 'in-progress' | 'review' | 'done'; // Keeping original for now
   progress: number;
   startDate: string;
   endDate?: string;
@@ -40,6 +45,7 @@ interface Project {
   colorLabel?: string;
   tags: string[];
 }
+// --- End Update Project interface ---
 
 interface ProjectContextType {
   projects: Project[];
@@ -52,6 +58,9 @@ interface ProjectContextType {
   deleteProject: (id: string) => Promise<void>;
   beginTask: (taskId: string) => Promise<void>;
   completeTask: (taskId: string) => Promise<void>;
+  // --- Add cancelTask to the context type ---
+  cancelTask: (taskId: string) => Promise<void>;
+  // --- End Add cancelTask ---
   getProjectTasks: (projectId: string) => Task[];
 }
 
@@ -62,7 +71,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-
+  
   // Type casting helper for supabase client
   const db = supabase as any;
 
@@ -82,7 +91,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
   const loadProjects = async () => {
     if (!user) return;
-    
+    console.log('DEBUG: Current user from AuthContext:', user);
     console.log('Loading projects...');
     try {
       const { data, error } = await db
@@ -90,9 +99,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
+        
+      if (error) {
+          console.error('❌ Supabase insert error:', error);
+          toast.error(`Failed to create project: ${error.message}`);
+          throw error;
+        }
+        
       console.log('Projects loaded:', data);
       setProjects(data?.map((p: any) => ({
         id: p.id,
@@ -116,7 +129,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
   const loadTasks = async () => {
     if (!user) return;
-    
     console.log('Loading tasks...');
     try {
       const { data, error } = await db
@@ -124,7 +136,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-
+        
       if (error) throw error;
       
       console.log('Tasks loaded:', data);
@@ -133,6 +145,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         title: t.title,
         description: t.description || '',
         priority: t.priority,
+        // Map Supabase status to context status (ensure 'cancelled' is handled if stored differently)
         status: t.status,
         projectId: t.project_id,
         dueDate: t.due_date || '',
@@ -159,9 +172,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
       const { error } = await db.functions.invoke('auto-update-project-status', {
         body: { projectId }
       });
-
       if (error) throw error;
-      
       // Reload projects to get updated status
       await loadProjects();
     } catch (error) {
@@ -171,7 +182,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
   const addProject = async (project: Omit<Project, 'id' | 'tasks'> & { tasks: Array<{ title: string; description?: string; isReviewTask?: boolean }> }) => {
     if (!user) return;
-
     console.log('Adding project:', project);
     try {
       const { data, error } = await db
@@ -193,9 +203,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         .single();
 
       if (error) throw error;
-
+      
       console.log('Project added to DB:', data);
-
       const newProject = {
         id: data.id,
         name: data.name,
@@ -210,7 +219,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         colorLabel: data.color_label,
         tags: data.tags || [],
       };
-
       setProjects(prev => [newProject, ...prev]);
       console.log('Projects state after adding:', [newProject, ...projects]);
 
@@ -232,7 +240,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
           completed_at: null,
         });
       }
-
       toast.success('Project created successfully!');
     } catch (error) {
       console.error('Error adding project:', error);
@@ -242,7 +249,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
   const addTask = async (task: Omit<Task, 'id'>) => {
     if (!user) return;
-
     console.log('Adding task:', task);
     try {
       const { data, error } = await db
@@ -268,9 +274,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         .single();
 
       if (error) throw error;
-
+      
       console.log('Task added to DB:', data);
-
       const newTask = {
         id: data.id,
         title: data.title,
@@ -288,13 +293,11 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         started_at: data.started_at,
         completed_at: data.completed_at,
       };
-
       setTasks(prev => [newTask, ...prev]);
       console.log('Tasks state after adding:', [newTask, ...tasks]);
-      
+
       // Update project status after adding task
       await updateProjectStatus(task.projectId);
-      
       toast.success('Task created successfully!');
     } catch (error) {
       console.error('Error adding task:', error);
@@ -304,7 +307,6 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
   const updateTask = async (id: string, updates: Partial<Task>) => {
     if (!user) return;
-
     console.log('Updating task with id:', id, 'updates:', updates);
     try {
       const { error } = await db
@@ -327,7 +329,7 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         .eq('user_id', user.id);
 
       if (error) throw error;
-
+      
       console.log('Task updated in DB:', id);
       setTasks(prev => prev.map(task => 
         task.id === id ? { ...task, ...updates } : task
@@ -335,13 +337,12 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
       console.log('Tasks state after updating:', tasks.map(task => 
         task.id === id ? { ...task, ...updates } : task
       ));
-      
+
       // Update project status after task update
       const task = tasks.find(t => t.id === id);
       if (task) {
         await updateProjectStatus(task.projectId);
       }
-      
       toast.success('Task updated successfully!');
     } catch (error) {
       console.error('Error updating task:', error);
@@ -351,10 +352,8 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
 
   const deleteTask = async (id: string) => {
     if (!user) return;
-
     const task = tasks.find(t => t.id === id);
     if (!task) return;
-
     console.log('Deleting task with id:', id);
     try {
       const { error } = await db
@@ -364,14 +363,13 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         .eq('user_id', user.id);
 
       if (error) throw error;
-
+      
       console.log('Task deleted from DB:', id);
       setTasks(prev => prev.filter(task => task.id !== id));
       console.log('Tasks state after deleting:', tasks.filter(task => task.id !== id));
-      
+
       // Update project status after deleting task
       await updateProjectStatus(task.projectId);
-      
       toast.success('Task deleted successfully!');
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -388,7 +386,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
         .delete()
         .eq('id', id)
         .eq('user_id', user.id);
+
       if (error) throw error;
+      
       console.log('Project deleted from DB:', id);
       setProjects(prev => prev.filter(project => project.id !== id));
       setTasks(prev => prev.filter(task => task.projectId !== id));
@@ -411,6 +411,50 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
     await updateTask(taskId, { completed: true, status: 'done', progress: 100 });
   };
 
+  // --- Implement the cancelTask function ---
+  const cancelTask = async (taskId: string) => {
+    if (!user) return;
+    console.log('Cancelling task:', taskId);
+    try {
+      // Update the task status to 'cancelled' in the database
+      const { error } = await db
+        .from('tasks')
+        .update({
+          status: 'cancelled',
+          // Optionally, you might want to set completed to false and progress to 0
+          // completed: false,
+          // progress: 0,
+          // completed_at: null, // Clear completion timestamp if it was set
+        })
+        .eq('id', taskId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      console.log('Task cancelled in DB:', taskId);
+      
+      // Update the local state
+      setTasks(prev =>
+        prev.map(task =>
+          task.id === taskId ? { ...task, status: 'cancelled' } : task
+        )
+      );
+      
+      // Find the task to get its projectId for updating project status
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        // Update project status after task cancellation
+        await updateProjectStatus(task.projectId);
+      }
+      
+      toast.success('Task cancelled successfully!');
+    } catch (error) {
+      console.error('Error cancelling task:', error);
+      toast.error('Failed to cancel task');
+    }
+  };
+  // --- End Implement the cancelTask function ---
+
   const getProjectTasks = (projectId: string) => {
     return tasks.filter(task => task.projectId === projectId);
   };
@@ -427,6 +471,9 @@ export const ProjectProvider = ({ children }: { children: React.ReactNode }) => 
       deleteProject,
       beginTask,
       completeTask,
+      // --- Include cancelTask in the provider value ---
+      cancelTask,
+      // --- End Include cancelTask ---
       getProjectTasks
     }}>
       {children}

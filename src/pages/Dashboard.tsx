@@ -35,6 +35,13 @@ const DashboardPage = () => {
     return null; // Will redirect in useEffect
   }
 
+  // Only render the dashboard content if user is authenticated
+  if (!user) {
+    // The useEffect will handle the redirection, rendering null here prevents
+    // rendering the dashboard layout and modals while authentication is pending
+    return null; 
+  }
+
   return (
     <ProjectProvider>
       <div className="min-h-screen bg-background text-foreground">
@@ -60,15 +67,12 @@ const DashboardPage = () => {
             </main>
           </div>
         </div>
-
         {showProjectModal && (
           <ProjectModal onClose={() => setShowProjectModal(false)} />
         )}
-
         {showAIAssistant && (
           <AIAssistant onClose={() => setShowAIAssistant(false)} />
-        )}
-      </div>
+        )}      </div>
     </ProjectProvider>
   );
 };

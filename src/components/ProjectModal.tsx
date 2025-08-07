@@ -1,5 +1,5 @@
-
-import { useState } from 'react';
+// src/components/ProjectModal.tsx
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,36 +14,122 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useProject } from '@/contexts/ProjectContext';
 
-interface ProjectModalProps {
-  onClose: () => void;
+// --- Define Types ---
+// Replace 'any' with your actual types from your data model if available
+interface ProjectTask {
+  id?: string; // Might not exist for new tasks
+  title: string;
+  description?: string;
+  isReviewTask?: boolean;
+  // ... other potential task properties
 }
 
-  export const ProjectModal = ({ onClose }: ProjectModalProps) => {
-  const { addProject } = useProject();
+interface Project {
+  id?: string; // Might not exist for new projects
+  name: string;
+  description: string;
+  category: 'tech' | 'academic' | 'research' | 'business' | 'personal';
+  status?: string; // For existing projects
+  progress?: number; // For existing projects
+  startDate?: string; // For existing projects
+  endDate?: string; // Expected format from date picker
+  tags: string[];
+  priority: 'low' | 'medium' | 'high';
+  colorLabel: string;
+  tasks?: ProjectTask[]; // For existing projects
+  // ... other potential project properties
+}
+// --- End Define Types ---
+
+interface ProjectModalProps {
+  isOpen: boolean; // Changed from 'open' and made required for controlled component
+  onClose: () => void;
+  project?: Project; // Use defined type or 'any'
+}
+
+export const ProjectModal = ({ isOpen, onClose, project }: ProjectModalProps) => {
+  const { addProject, updateProject } = useProject();
   const [title, setTitle] = useState('');
+  const [isDueDatePopoverOpen, setIsDueDatePopoverOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<'tech' | 'academic' | 'research' | 'business' | 'personal'>('tech');
-  const [dueDate, setDueDate] = useState<Date>();
+  const [dueDate, setDueDate] = useState<Date | undefined>();
   const [tags, setTags] = useState<string[]>([]);
   const [currentTag, setCurrentTag] = useState('');
+
   // Add state for new fields
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
-  const [colorLabel, setColorLabel] = useState<string>('#3b82f6'); // default blue
+  // --- Set a default colorLabel ---
+  // This addresses the optional update mentioned previously for better UX
+  const [colorLabel, setColorLabel] = useState<string>('#3b82f6'); // Default blue color
+  // --- End Set a default colorLabel ---
   const [tasks, setTasks] = useState<Array<{ title: string; description?: string }>>([{ title: '' }]);
 
+  // Populate form with project data when in edit mode or reset when modal closes/opens for new
+  useEffect(() => {
+    if (isOpen && project) {
+      // Populate form if modal opens for editing
+      setTitle(project.name || '');
+      setDescription(project.description || '');
+      setCategory(project.category || 'tech');
+      setDueDate(project.endDate ? new Date(project.endDate) : undefined);
+      setTags(project.tags || []);
+      setPriority(project.priority || 'medium');
+      // --- Use the project's color or fallback to default ---
+      setColorLabel(project.colorLabel || '#3b82f6');
+      // --- End Use the project's color ---
+      if (Array.isArray(project.tasks)) {
+        // Filter out tasks without a title or the review task when populating for edit
+        const filteredTasks = project.tasks.filter(
+          (task) => task.title && !task.isReviewTask
+        );
+        setTasks(filteredTasks.length > 0 ? filteredTasks : [{ title: '' }]);
+      } else {
+        setTasks([{ title: '' }]);
+      }
+    } else if (isOpen && !project) {
+       // Reset form for new project if modal opens in create mode
+      setTitle('');
+      setDescription('');
+      setCategory('tech');
+      setDueDate(undefined);
+      setTags([]);
+      setPriority('medium');
+      setColorLabel('#3b82f6'); // Reset to default color for new project
+      setTasks([{ title: '' }]);
+    }
+    // Optional: Reset form when modal closes, might be useful depending on UX needs
+    // else if (!isOpen) {
+    //   setTitle('');
+    //   // ... reset other fields
+    // }
+  }, [isOpen, project]); // Depend on isOpen and project
+
   const availableTags = [
-    'React', 'TypeScript', 'Python', 'Machine Learning', 
+    'React', 'TypeScript', 'Python', 'Machine Learning',
     'Web Development', 'Analytics', 'Research', 'Business',
     'AI Ethics', 'Academic', 'Process', 'Optimization'
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
-    if (!dueDate) return;
+
+    // Basic validation (Consider user feedback like alerts or inline errors in a real app)
+    if (!title.trim()) {
+      alert("Project title is required.");
+      return;
+    }
+    if (!dueDate) {
+      alert("Due date is required.");
+      return;
+    }
+
     // Validate at least one user-defined task with a title
     const userTasks = tasks.filter(t => t.title.trim());
-    if (userTasks.length === 0) return;
+    if (userTasks.length === 0) {
+      alert("At least one task is required.");
+      return;
+    }
 
     // Append non-removable Review & Comments task
     const allTasks = [
@@ -55,25 +141,42 @@ interface ProjectModalProps {
       },
     ];
 
-    addProject({
+    const projectData = {
       name: title.trim(),
       description: description.trim(),
       category,
-      status: 'todo',
-      progress: 0,
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: dueDate?.toISOString().split('T')[0],
+      endDate: dueDate ? dueDate.toISOString().split('T')[0] : null,
       tags,
       priority,
       colorLabel,
       tasks: allTasks,
-    });
-    onClose();
+    };
+
+    if (project && project.id) { // Ensure project ID exists for update
+      // Update existing project
+      // Keep existing status, progress, and startDate
+      updateProject(project.id, {
+        ...projectData,
+        status: project.status,
+        progress: project.progress,
+        startDate: project.startDate,
+      });
+    } else {
+      // Create new project
+      addProject({
+        ...projectData,
+        status: 'todo',
+        progress: 0,
+        startDate: new Date().toISOString().split('T')[0],
+      });
+    }
+    onClose(); // Close the modal after submission
   };
 
   const addTag = (tag: string) => {
-    if (tag && !tags.includes(tag)) {
-      setTags([...tags, tag]);
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !tags.includes(trimmedTag)) {
+      setTags([...tags, trimmedTag]);
     }
     setCurrentTag('');
   };
@@ -89,16 +192,43 @@ interface ProjectModalProps {
     }
   };
 
+  const addTask = () => {
+    setTasks([...tasks, { title: '' }]);
+  };
+
+  const removeTask = (index: number) => {
+    if (tasks.length <= 1) return; // Prevent removing the last task if it's the only one
+    setTasks(tasks.filter((_, i) => i !== index));
+  };
+
+  const updateTaskTitle = (index: number, newTitle: string) => {
+    const newTasks = [...tasks];
+    newTasks[index].title = newTitle;
+    setTasks(newTasks);
+  };
+
+  // --- Optional: Early return if not open for performance ---
+  // This ensures the component doesn't do unnecessary work when closed.
+  if (!isOpen) {
+    return null;
+  }
+  // --- End Optional: Early return ---
+
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    // --- Use isOpen prop to control visibility ---
+    <Dialog open={isOpen} onOpenChange={onClose}>
+    {/* --- End Use isOpen prop --- */}
+      <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
+          {project ? (
+            <DialogTitle>Edit Project</DialogTitle>
+          ) : (
+            <DialogTitle>Create New Project</DialogTitle>
+          )}
         </DialogHeader>
-        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="title">Project Title</Label>
+            <Label htmlFor="title">Project Title *</Label>
             <Input
               id="title"
               value={title}
@@ -107,7 +237,6 @@ interface ProjectModalProps {
               required
             />
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
@@ -118,13 +247,12 @@ interface ProjectModalProps {
               rows={4}
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Category</Label>
               <Select value={category} onValueChange={(value: any) => setCategory(value)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="tech">Technology</SelectItem>
@@ -135,10 +263,9 @@ interface ProjectModalProps {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
-              <Label>Due Date</Label>
-              <Popover>
+              <Label>Due Date *</Label>
+              <Popover open={isDueDatePopoverOpen} onOpenChange={setIsDueDatePopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -148,14 +275,17 @@ interface ProjectModalProps {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "PPP") : "Pick a date"}
+                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
                     selected={dueDate}
-                    onSelect={setDueDate}
+                    onSelect={(date) => {
+                      setDueDate(date);
+                      setIsDueDatePopoverOpen(false); // Close the popover on date selection
+                    }}
                     initialFocus
                     className="pointer-events-auto"
                   />
@@ -163,54 +293,53 @@ interface ProjectModalProps {
               </Popover>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label>Priority</Label>
-            <Select value={priority} onValueChange={(value: any) => setPriority(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select value={priority} onValueChange={(value: any) => setPriority(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="colorLabel">Color Label</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="colorLabel"
+                  type="color"
+                  value={colorLabel}
+                  onChange={e => setColorLabel(e.target.value)}
+                  className="w-12 h-8 p-0 border rounded cursor-pointer"
+                  aria-label="Pick project color"
+                />
+                <span className="text-sm text-muted-foreground">{colorLabel}</span>
+              </div>
+            </div>
           </div>
-
           <div className="space-y-2">
-            <Label>Color Label</Label>
-            <input
-              type="color"
-              value={colorLabel}
-              onChange={e => setColorLabel(e.target.value)}
-              className="w-12 h-8 p-0 border-none bg-transparent cursor-pointer"
-              aria-label="Pick project color"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Initial Task(s)</Label>
+            <Label>Initial Task(s) *</Label>
             <div className="space-y-2">
               {tasks.map((task, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <Input
                     value={task.title}
-                    onChange={e => {
-                      const newTasks = [...tasks];
-                      newTasks[idx].title = e.target.value;
-                      setTasks(newTasks);
-                    }}
+                    onChange={e => updateTaskTitle(idx, e.target.value)}
                     placeholder={`Task ${idx + 1} title...`}
-                    required={idx === 0}
+                    required={idx === 0} // Require the first task
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => setTasks(tasks.filter((_, i) => i !== idx))}
-                    disabled={tasks.length === 1}
-                    aria-label="Remove task"
+                    onClick={() => removeTask(idx)}
+                    disabled={tasks.length === 1} // Disable remove button if only one task
+                    aria-label={`Remove task ${idx + 1}`}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -219,51 +348,49 @@ interface ProjectModalProps {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setTasks([...tasks, { title: '' }])}
+                onClick={addTask}
                 className="mt-1"
               >
                 Add Task
               </Button>
+              <p className="text-xs text-muted-foreground">At least one task is required. &quot;Review &amp; Comments&quot; will be added automatically.</p>
             </div>
-            <p className="text-xs text-muted-foreground">At least one task is required. "Review & Comments" will be added automatically.</p>
           </div>
-
           <div className="space-y-2">
             <Label>Tags</Label>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-sm">
+                  <Badge key={tag} variant="secondary" className="text-sm py-1">
                     {tag}
                     <button
                       type="button"
                       onClick={() => removeTag(tag)}
-                      className="ml-2 hover:text-destructive"
+                      className="ml-1.5 hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring rounded-full"
+                      aria-label={`Remove tag ${tag}`}
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>
                 ))}
               </div>
-              
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
                 <Input
                   value={currentTag}
                   onChange={(e) => setCurrentTag(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress} // Use onKeyDown for better compatibility
                   placeholder="Add a tag..."
                   className="flex-1"
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => addTag(currentTag.trim())}
+                  onClick={() => addTag(currentTag)}
                   disabled={!currentTag.trim() || tags.includes(currentTag.trim())}
                 >
                   Add
                 </Button>
               </div>
-              
               <div className="flex flex-wrap gap-1">
                 {availableTags
                   .filter(tag => !tags.includes(tag) && tag.toLowerCase().includes(currentTag.toLowerCase()))
@@ -272,8 +399,9 @@ interface ProjectModalProps {
                     <Badge
                       key={tag}
                       variant="outline"
-                      className="text-xs cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      className="text-xs cursor-pointer hover:bg-accent"
                       onClick={() => addTag(tag)}
+                      aria-label={`Add tag ${tag}`}
                     >
                       {tag}
                     </Badge>
@@ -281,13 +409,12 @@ interface ProjectModalProps {
               </div>
             </div>
           </div>
-
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-gradient-to-r from-blue-600 to-blue-700">
-              Create Project
+            <Button type="submit" className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800">
+              {project ? 'Save Changes' : 'Create Project'}
             </Button>
           </div>
         </form>
@@ -295,4 +422,3 @@ interface ProjectModalProps {
     </Dialog>
   );
 };
-
